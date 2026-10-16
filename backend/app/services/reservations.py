@@ -1,10 +1,17 @@
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any
 
 from sqlalchemy import text
 
 from app.core.database_pool import db_pool
+
+CENTS = Decimal("0.01")
+
+
+def to_money(value) -> Decimal:
+    """Round a database amount to cents using ordinary financial rounding."""
+    return Decimal(str(value or 0)).quantize(CENTS, rounding=ROUND_HALF_UP)
 
 async def calculate_monthly_revenue(property_id: str, month: int, year: int, db_session=None) -> Decimal:
     """
@@ -68,7 +75,7 @@ async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str,
             "count": 0,
         }
 
-    total_revenue = Decimal(str(row.total_revenue))
+    total_revenue = to_money(row.total_revenue)
     return {
         "property_id": property_id,
         "tenant_id": tenant_id,
