@@ -69,7 +69,9 @@ class TenantResolver:
         return None
 
     @staticmethod
-    async def resolve_tenant_id(user_id: str, user_email: str, token: Optional[str] = None) -> str:
+    async def resolve_tenant_id(
+        user_id: str, user_email: str, token: Optional[str] = None
+    ) -> Optional[str]:
         """
         Resolve tenant ID for a user.
         
@@ -80,6 +82,19 @@ class TenantResolver:
         Returns:
             Tenant ID
         """
+        # Prefer the tenant claim from the already verified token.
+        if token:
+            try:
+                from jose import jwt
+
+                tenant_id = TenantResolver.resolve_tenant_from_token(
+                    jwt.get_unverified_claims(token)
+                )
+                if tenant_id:
+                    return tenant_id
+            except Exception:
+                logger.warning("Unable to read tenant claim from token")
+
         # Fallback mapping by known user email.
         if user_email == "sunset@propertyflow.com":
             return "tenant-a"
@@ -88,8 +103,9 @@ class TenantResolver:
         if user_email == "candidate@propertyflow.com":
             return "tenant-a"
             
-        # Default fallback
-        return "tenant-a"
+        # Never guess a tenant for an unknown user.
+        logger.warning("No tenant could be resolved for user %s", user_email)
+        return None
 
     @staticmethod
     async def update_user_tenant_metadata(user_id: str, tenant_id: str) -> None:
